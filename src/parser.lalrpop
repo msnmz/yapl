@@ -1,0 +1,114 @@
+use std::str::FromStr;
+use crate::ast::{Prog, Stmt, Expr, Opcode, ArithmeticOpcode, CondBlock, ListItem};
+
+grammar;
+
+pub Prog: Prog<'input> = {
+  <stmts:Stmt*> => Prog::Body(stmts),
+};
+
+pub Stmt: Stmt<'input> = {
+  "while" <cond_block:ConditionalBlock>
+          => Stmt::While(cond_block),
+  "if" <cond_block:ConditionalBlock> <else_block:ElseBlock?>
+          => Stmt::IfElse {if_block: cond_block, else_block},
+  <name:Ident> <opcode:ArithmeticStmtOp> <rhs:Expr> ";"
+          => Stmt::ArithmeticAssign{name, opcode, rhs},
+  <lhs:Expr> "=" <rhs:Expr> ";"
+          => Stmt::Assign{lhs, rhs},
+  <expr:Expr> ";"
+          => Stmt::Expr(expr),
+};
+
+ConditionalBlock: CondBlock<'input> = {
+  <cond:Expr> "{" <stmts:Stmt*> "}" => CondBlock {cond, stmts},
+};
+
+ElseBlock: Vec<Stmt<'input>> = {
+  "else" "{" <stmts:Stmt*> "}" => stmts,
+};
+
+ExprTier<TierOp, NextTier>: Expr<'input> = {
+  <lhs:ExprTier<TierOp, NextTier>> <opcode:TierOp> <rhs:NextTier> =>
+    Expr::Op { lhs: Box::new(lhs), rhs: Box::new(rhs), opcode },
+  NextTier,
+};
+
+pub Expr = ExprTier<ComparisonExprOp, ArithmeticExpr>;
+ArithmeticExpr = ExprTier<ArithmeticExprOp, FactorExpr>;
+FactorExpr = ExprTier<FactorExprOp, Term>;
+
+Term: Expr<'input> = {
+  <v:IntLiteral> => Expr::Int(v),
+  <v:StrLiteral> => Expr::StrLiteral(v),
+  <name:Ident> => Expr::Ident(name),
+  <func:Ident> "(" <args:Args<Expr>> ")" => Expr::Call{func, args},
+  "[" <items:Args<ListItem>> "]" => Expr::List(items),
+};
+
+ListItem: ListItem<'input> = {
+  <spread:".."?> <expr:Term>
+    => ListItem {expr, is_spread: spread.is_some()},
+  <expr:Underscore> => ListItem {expr, is_spread: false},
+};
+
+Args<T>: Vec<T> = {
+  <mut v:(<T> ",")*> <e:T?> => match e {
+    None => v,
+    Some(e) => {
+      v.push(e);
+      v
+    }
+  }
+};
+
+Underscore: Expr<'input> = {
+  "_" => Expr::Underscore,
+};
+
+Ident: &'input str = {
+  r"[_a-zA-Z][_a-zA-Z0-9]*"
+};
+
+IntLiteral: i64 = {
+  r"(\+|-)?[0-9]+" => i64::from_str(<>).unwrap(),
+};
+
+StrLiteral: &'input str = {
+  r#""[^"]*""# => <>.trim_matches(&['"'] as &[_]),
+};
+
+ArithmeticStmtOp: ArithmeticOpcode = {
+  "+=" => ArithmeticOpcode::AddAssign,
+  "-=" => ArithmeticOpcode::SubAssign,
+  "*=" => ArithmeticOpcode::MulAssign,
+  "/=" => ArithmeticOpcode::DivAssign,
+  "%=" => ArithmeticOpcode::ModAssign,
+};
+
+ComparisonExprOp: Opcode = {
+  "<" => Opcode::Lt,
+  ">" => Opcode::Gt,
+  "<=" => Opcode::Lte,
+  ">=" => Opcode::Gte,
+  "==" => Opcode::Eq,
+  "!=" => Opcode::Neq
+};
+
+ArithmeticExprOp: Opcode = {
+  "+" => Opcode::Add,
+  "-" => Opcode::Sub,
+};
+
+FactorExprOp: Opcode = {
+  "*" => Opcode::Mul,
+  "/" => Opcode::Div,
+  "%" => Opcode::Mod
+};
+
+
+match {
+  r"\s*" => {}, // ignore whitespace
+  r"#[^\n\r]*[\n\r]*" => {}, // ignore comments #
+  _
+}
