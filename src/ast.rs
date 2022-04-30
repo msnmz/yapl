@@ -17,6 +17,7 @@ pub enum Stmt<'a> {
     Expr(Expr<'a>),
     IfElse {
         if_block: CondBlock<'a>,
+        else_if_blocks: Vec<CondBlock<'a>>,
         else_block: Option<Vec<Stmt<'a>>>,
     },
     While(CondBlock<'a>),

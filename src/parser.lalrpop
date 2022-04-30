@@ -10,8 +10,8 @@ pub Prog: Prog<'input> = {
 pub Stmt: Stmt<'input> = {
   "while" <cond_block:ConditionalBlock>
           => Stmt::While(cond_block),
-  "if" <cond_block:ConditionalBlock> <else_block:ElseBlock?>
-          => Stmt::IfElse {if_block: cond_block, else_block},
+  "if" <cond_block:ConditionalBlock> <else_if_blocks:ElseIfBlock*> <else_block:ElseBlock?>
+          => Stmt::IfElse {if_block: cond_block, else_if_blocks, else_block},
   <name:Ident> <opcode:ArithmeticStmtOp> <rhs:Expr> ";"
           => Stmt::ArithmeticAssign{name, opcode, rhs},
   <lhs:Expr> "=" <rhs:Expr> ";"
@@ -26,6 +26,10 @@ ConditionalBlock: CondBlock<'input> = {
 
 ElseBlock: Vec<Stmt<'input>> = {
   "else" "{" <stmts:Stmt*> "}" => stmts,
+};
+
+ElseIfBlock: CondBlock<'input> = {
+  "else" "if" <cond_block:ConditionalBlock> => cond_block,
 };
 
 ExprTier<TierOp, NextTier>: Expr<'input> = {
