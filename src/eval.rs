@@ -183,12 +183,25 @@ fn run_stmt<'a>(env: &mut Env<'a>, stmt: &'a Stmt) -> Result<(), String> {
         }
         Stmt::IfElse {
             if_block: CondBlock { cond, stmts },
+            else_if_blocks,
             else_block,
         } => {
             if let Ok(Value::Boolean(v)) = run_expr(env, cond) {
                 if v {
                     return run_block(env, stmts);
-                } else if let Some(stmts) = else_block {
+                }
+                if else_if_blocks.len() > 0 {
+                    for CondBlock { cond, stmts } in else_if_blocks {
+                        if let Ok(Value::Boolean(v)) = run_expr(env, cond) {
+                            if v {
+                                return run_block(env, stmts);
+                            }
+                        } else {
+                            return Err(format!("expected boolean expression in if statement: '{cond:?}' is not a boolean expression"));
+                        }
+                    }
+                }
+                if let Some(stmts) = else_block {
                     return run_block(env, stmts);
                 }
             } else {
