@@ -19,7 +19,7 @@ All the supported things are listed in ./lang/test.txt
 - comments (#)
 - Rest, Spread operators (..identifier)
 - basic pattern matching with discard support (with underscore \_)
-- if & if else (for now if else if does not work)
+- if & if else & if else if else
 - loops with `while`
 
 ## Local development
